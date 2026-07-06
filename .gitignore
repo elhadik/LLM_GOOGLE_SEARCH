@@ -1,0 +1,14 @@
+# Python & Virtual Environments
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environment & Credentials (NEVER commit secrets!)
+.env
+
+# OS Files
+.DS_Store
+Thumbs.db
