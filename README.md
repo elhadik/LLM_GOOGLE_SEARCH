@@ -28,10 +28,11 @@ This project is built using official documentation and standards from Google Clo
 5. [Authentication Modes](#5-authentication-modes)
    - [Mode A: Gemini API Key (Recommended for Quick Setup)](#mode-a-gemini-api-key-recommended-for-quick-setup)
    - [Mode B: Google Cloud Vertex AI (Enterprise Setup)](#mode-b-google-cloud-vertex-ai-enterprise-setup)
-6. [Running the Script](#6-running-the-script)
-7. [Understanding the Response Output](#7-understanding-the-response-output)
-8. [Troubleshooting Common Issues](#8-troubleshooting-common-issues)
-9. [Citations](#-references--official-citations)
+6. [Running the Python Script](#6-running-the-python-script)
+7. [Testing via REST API & cURL](#7-testing-via-rest-api--curl)
+8. [Understanding the Response Output](#8-understanding-the-response-output)
+9. [Troubleshooting Common Issues](#9-troubleshooting-common-issues)
+10. [Citations](#-references--official-citations)
 
 ---
 
@@ -125,7 +126,7 @@ GOOGLE_API_USE_CLIENT_CERTIFICATE=false
 
 ---
 
-## 6. Running the Script
+## 6. Running the Python Script
 
 You can run the script directly with default or custom search prompts.
 
@@ -141,7 +142,60 @@ You can run the script directly with default or custom search prompts.
 
 ---
 
-## 7. Understanding the Response Output
+## 7. Testing via REST API & cURL
+
+You can test Google Search Grounding directly using `curl` requests without using Python.
+
+### Option A: Testing via Gemini API Key (Google AI Studio REST API)
+
+Replace `YOUR_GEMINI_API_KEY` with your actual API key:
+
+```bash
+curl -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=YOUR_GEMINI_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "contents": [{
+      "parts": [{
+        "text": "What are the latest news about NIQ (NielsenIQ)?"
+      }]
+    }],
+    "tools": [{
+      "googleSearch": {}
+    }]
+  }'
+```
+
+### Option B: Testing via Google Cloud Vertex AI REST API
+
+If you are using Google Cloud Vertex AI with Application Default Credentials:
+
+```bash
+# 1. Get OAuth Access Token
+ACCESS_TOKEN=$(gcloud auth application-default print-access-token)
+PROJECT_ID="shade-sandbox"
+LOCATION="us-central1"
+MODEL_ID="gemini-2.5-flash"
+
+# 2. Call Vertex AI Endpoint
+curl -X POST "https://${LOCATION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${LOCATION}/publishers/google/models/${MODEL_ID}:generateContent" \
+  -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "contents": [{
+      "role": "user",
+      "parts": [{
+        "text": "What are the latest news about NIQ (NielsenIQ)?"
+      }]
+    }],
+    "tools": [{
+      "googleSearch": {}
+    }]
+  }'
+```
+
+---
+
+## 8. Understanding the Response Output
 
 The script outputs a standard JSON object structured after the **[Google Custom Search API Overview](https://developers.google.com/custom-search/v1/overview)**:
 
@@ -199,7 +253,7 @@ The script outputs a standard JSON object structured after the **[Google Custom 
 
 ---
 
-## 8. Troubleshooting Common Issues
+## 9. Troubleshooting Common Issues
 
 ### ❓ Issue 1: `Reauthentication is needed` or `Access Denied`
 * **Cause**: Your Google Cloud local credentials expired.
