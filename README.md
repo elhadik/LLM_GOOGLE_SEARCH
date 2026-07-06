@@ -31,8 +31,8 @@ This project is built using official documentation and standards from Google Clo
    - [Mode B: Google Cloud Vertex AI (Enterprise Setup)](#mode-b-google-cloud-vertex-ai-enterprise-setup)
 7. [Running the Python Script](#7-running-the-python-script)
 8. [Testing via REST API & cURL](#8-testing-via-rest-api--curl)
-   - [Option A: Gemini API Key via cURL + jq](#option-a-gemini-api-key-via-curl--jq)
-   - [Option B: Google Cloud Vertex AI via cURL + jq](#option-b-google-cloud-vertex-ai-via-curl--jq)
+   - [Option A: Gemini API Key via cURL + Python](#option-a-gemini-api-key-via-curl--python)
+   - [Option B: Google Cloud Vertex AI via cURL + Python](#option-b-google-cloud-vertex-ai-via-curl--python)
 9. [Understanding the Response Output](#9-understanding-the-response-output)
 10. [Troubleshooting Common Issues](#10-troubleshooting-common-issues)
 11. [Citations](#-references--official-citations)
@@ -44,7 +44,6 @@ This project is built using official documentation and standards from Google Clo
 Before starting, make sure you have:
 * **Linux / macOS / Windows Terminal**
 * **Python 3.10 or higher** (Check by running `python3 --version`)
-* **`jq` command line JSON processor** (Check by running `jq --version` or install via `sudo apt install jq` / `brew install jq`)
 * **Google Cloud Project** or a **Gemini API Key** from Google AI Studio
 
 ---
@@ -161,9 +160,9 @@ You can run the script directly with default or custom search prompts.
 
 ## 8. Testing via REST API & cURL
 
-You can test Google Search Grounding using `curl` and pipe the response into `jq` to transform it directly on the command line into **the exact same Google Custom Search API JSON format** returned by the Python client.
+You can test Google Search Grounding using `curl` and pipe the response into Python to transform it directly on the command line into **the exact same Google Custom Search API JSON format** returned by the Python client.
 
-### Option A: Gemini API Key via cURL + jq
+### Option A: Gemini API Key via cURL + Python
 
 Replace `YOUR_GEMINI_API_KEY` with your actual API key:
 
@@ -173,50 +172,50 @@ curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-
   -d '{
     "contents": [{"parts": [{"text": "What are the latest developments in generative AI?"}]}],
     "tools": [{"googleSearch": {}}]
-  }' | jq '{
-    kind: "customsearch#search",
-    url: {
-      type: "application/json",
-      template: "https://www.googleapis.com/customsearch/v1?q={searchTerms}"
-    },
-    queries: {
-      request: [.candidates[0].groundingMetadata.webSearchQueries[]? | {
-        title: ("Google Custom Search - " + .),
-        totalResults: ((.candidates[0].groundingMetadata.groundingChunks // []) | length | tostring),
-        searchTerms: .,
-        count: ((.candidates[0].groundingMetadata.groundingChunks // []) | length),
-        startIndex: 1
-      }]
-    },
-    searchInformation: {
-      searchTime: 0.5,
-      formattedSearchTime: "0.50",
-      totalResults: ((.candidates[0].groundingMetadata.groundingChunks // []) | length | tostring),
-      formattedTotalResults: ((.candidates[0].groundingMetadata.groundingChunks // []) | length | tostring)
-    },
-    items: [.candidates[0].groundingMetadata.groundingChunks[]? | select(.web != null) | {
-      kind: "customsearch#result",
-      title: .web.title,
-      htmlTitle: ("<b>" + .web.title + "</b>"),
-      link: .web.uri,
-      displayLink: (.web.uri | split("/")[2] // .web.uri),
-      snippet: ("Web source cited for grounding: " + .web.title),
-      htmlSnippet: ("Web source cited for grounding: <b>" + .web.title + "</b>"),
-      formattedUrl: .web.uri
-    }],
-    citations: [(range(0; (.candidates[0].groundingMetadata.groundingChunks // []) | length) as $i | {
-      sourceIndex: ($i + 1),
-      title: .candidates[0].groundingMetadata.groundingChunks[$i].web.title,
-      url: .candidates[0].groundingMetadata.groundingChunks[$i].web.uri
-    })],
-    llmResponse: {
-      text: .candidates[0].content.parts[0].text,
-      queries: .candidates[0].groundingMetadata.webSearchQueries
-    }
-  }'
+  }' | python3 -c '
+import sys, json
+
+data = json.load(sys.stdin)
+cand = data.get("candidates", [{}])[0]
+gm = cand.get("groundingMetadata", {})
+
+queries = gm.get("webSearchQueries", [])
+chunks = [c["web"] for c in gm.get("groundingChunks", []) if "web" in c]
+text = cand.get("content", {}).get("parts", [{}])[0].get("text", "")
+
+items = []
+citations = []
+for idx, c in enumerate(chunks):
+    title = c.get("title", "")
+    url = c.get("uri", "")
+    domain = url.split("/")[2] if "/" in url else url
+    items.append({
+        "kind": "customsearch#result",
+        "title": title,
+        "htmlTitle": f"<b>{title}</b>",
+        "link": url,
+        "displayLink": domain,
+        "snippet": f"Web source cited for grounding: {title}",
+        "htmlSnippet": f"Web source cited for grounding: <b>{title}</b>",
+        "formattedUrl": url
+    })
+    citations.append({"sourceIndex": idx + 1, "title": title, "url": url})
+
+output = {
+    "kind": "customsearch#search",
+    "url": {"type": "application/json", "template": "https://www.googleapis.com/customsearch/v1?q={searchTerms}"},
+    "queries": {"request": [{"title": f"Google Custom Search - {q}", "totalResults": str(len(items)), "searchTerms": q, "count": len(items), "startIndex": 1} for q in queries]},
+    "searchInformation": {"searchTime": 0.5, "formattedSearchTime": "0.50", "totalResults": str(len(items)), "formattedTotalResults": str(len(items))},
+    "items": items,
+    "citations": citations,
+    "llmResponse": {"text": text, "queries": queries}
+}
+
+print(json.dumps(output, indent=2))
+'
 ```
 
-### Option B: Google Cloud Vertex AI via cURL + jq
+### Option B: Google Cloud Vertex AI via cURL + Python
 
 If using Google Cloud Vertex AI with Application Default Credentials:
 
@@ -227,61 +226,61 @@ PROJECT_ID="shade-sandbox"
 LOCATION="us-central1"
 MODEL_ID="gemini-2.5-flash"
 
-# 2. Execute cURL REST Request and transform with jq
+# 2. Execute cURL REST Request and transform with python
 curl -s -X POST "https://${LOCATION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${LOCATION}/publishers/google/models/${MODEL_ID}:generateContent" \
   -H "Authorization: Bearer ${ACCESS_TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{
     "contents": [{"role": "user", "parts": [{"text": "What are the latest developments in generative AI?"}]}],
     "tools": [{"googleSearch": {}}]
-  }' | jq '{
-    kind: "customsearch#search",
-    url: {
-      type: "application/json",
-      template: "https://www.googleapis.com/customsearch/v1?q={searchTerms}"
-    },
-    queries: {
-      request: [.candidates[0].groundingMetadata.webSearchQueries[]? | {
-        title: ("Google Custom Search - " + .),
-        totalResults: ((.candidates[0].groundingMetadata.groundingChunks // []) | length | tostring),
-        searchTerms: .,
-        count: ((.candidates[0].groundingMetadata.groundingChunks // []) | length),
-        startIndex: 1
-      }]
-    },
-    searchInformation: {
-      searchTime: 0.5,
-      formattedSearchTime: "0.50",
-      totalResults: ((.candidates[0].groundingMetadata.groundingChunks // []) | length | tostring),
-      formattedTotalResults: ((.candidates[0].groundingMetadata.groundingChunks // []) | length | tostring)
-    },
-    items: [.candidates[0].groundingMetadata.groundingChunks[]? | select(.web != null) | {
-      kind: "customsearch#result",
-      title: .web.title,
-      htmlTitle: ("<b>" + .web.title + "</b>"),
-      link: .web.uri,
-      displayLink: (.web.uri | split("/")[2] // .web.uri),
-      snippet: ("Web source cited for grounding: " + .web.title),
-      htmlSnippet: ("Web source cited for grounding: <b>" + .web.title + "</b>"),
-      formattedUrl: .web.uri
-    }],
-    citations: [(range(0; (.candidates[0].groundingMetadata.groundingChunks // []) | length) as $i | {
-      sourceIndex: ($i + 1),
-      title: .candidates[0].groundingMetadata.groundingChunks[$i].web.title,
-      url: .candidates[0].groundingMetadata.groundingChunks[$i].web.uri
-    })],
-    llmResponse: {
-      text: .candidates[0].content.parts[0].text,
-      queries: .candidates[0].groundingMetadata.webSearchQueries
-    }
-  }'
+  }' | python3 -c '
+import sys, json
+
+data = json.load(sys.stdin)
+cand = data.get("candidates", [{}])[0]
+gm = cand.get("groundingMetadata", {})
+
+queries = gm.get("webSearchQueries", [])
+chunks = [c["web"] for c in gm.get("groundingChunks", []) if "web" in c]
+text = cand.get("content", {}).get("parts", [{}])[0].get("text", "")
+
+items = []
+citations = []
+for idx, c in enumerate(chunks):
+    title = c.get("title", "")
+    url = c.get("uri", "")
+    domain = url.split("/")[2] if "/" in url else url
+    items.append({
+        "kind": "customsearch#result",
+        "title": title,
+        "htmlTitle": f"<b>{title}</b>",
+        "link": url,
+        "displayLink": domain,
+        "snippet": f"Web source cited for grounding: {title}",
+        "htmlSnippet": f"Web source cited for grounding: <b>{title}</b>",
+        "formattedUrl": url
+    })
+    citations.append({"sourceIndex": idx + 1, "title": title, "url": url})
+
+output = {
+    "kind": "customsearch#search",
+    "url": {"type": "application/json", "template": "https://www.googleapis.com/customsearch/v1?q={searchTerms}"},
+    "queries": {"request": [{"title": f"Google Custom Search - {q}", "totalResults": str(len(items)), "searchTerms": q, "count": len(items), "startIndex": 1} for q in queries]},
+    "searchInformation": {"searchTime": 0.5, "formattedSearchTime": "0.50", "totalResults": str(len(items)), "formattedTotalResults": str(len(items))},
+    "items": items,
+    "citations": citations,
+    "llmResponse": {"text": text, "queries": queries}
+}
+
+print(json.dumps(output, indent=2))
+'
 ```
 
 ---
 
 ## 9. Understanding the Response Output
 
-Whether calling via Python or cURL + `jq`, the response is structured after the **[Google Custom Search API Overview](https://developers.google.com/custom-search/v1/overview)**:
+Whether calling via Python or cURL + Python, the response is structured after the **[Google Custom Search API Overview](https://developers.google.com/custom-search/v1/overview)**:
 
 ```json
 {
