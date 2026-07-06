@@ -31,9 +31,8 @@ This project is built using official documentation and standards from Google Clo
    - [Mode B: Google Cloud Vertex AI (Enterprise Setup)](#mode-b-google-cloud-vertex-ai-enterprise-setup)
 7. [Running the Python Script](#7-running-the-python-script)
 8. [Testing via REST API & cURL](#8-testing-via-rest-api--curl)
-   - [Option A: cURL POST Request (Custom Search JSON Output)](#option-a-curl-post-request-custom-search-json-output)
-   - [Option B: cURL GET Request (Custom Search JSON Output)](#option-b-curl-get-request-custom-search-json-output)
-   - [Option C: Direct Gemini API cURL (Raw Output)](#option-c-direct-gemini-api-curl-raw-output)
+   - [Option A: Gemini API Key via cURL + jq](#option-a-gemini-api-key-via-curl--jq)
+   - [Option B: Google Cloud Vertex AI via cURL + jq](#option-b-google-cloud-vertex-ai-via-curl--jq)
 9. [Understanding the Response Output](#9-understanding-the-response-output)
 10. [Troubleshooting Common Issues](#10-troubleshooting-common-issues)
 11. [Citations](#-references--official-citations)
@@ -45,6 +44,7 @@ This project is built using official documentation and standards from Google Clo
 Before starting, make sure you have:
 * **Linux / macOS / Windows Terminal**
 * **Python 3.10 or higher** (Check by running `python3 --version`)
+* **`jq` command line JSON processor** (Check by running `jq --version` or install via `sudo apt install jq` / `brew install jq`)
 * **Google Cloud Project** or a **Gemini API Key** from Google AI Studio
 
 ---
@@ -56,9 +56,8 @@ Inside your working directory:
 | File / Folder | Purpose |
 | :--- | :--- |
 | **[.env](file:///usr/local/google/home/elhadik/NIQ_DEMO/.env)** | Configuration file containing API keys, project ID, and model names. Never commit keys to Git! |
-| **[requirements.txt](file:///usr/local/google/home/elhadik/NIQ_DEMO/requirements.txt)** | List of Python package dependencies (`google-genai`, `python-dotenv`, `flask`, `flask-cors`). |
-| **[llm_client.py](file:///usr/local/google/home/elhadik/NIQ_DEMO/llm_client.py)** | Main Python module that queries Gemini LLM and formats the grounded output as Custom Search JSON. |
-| **[app.py](file:///usr/local/google/home/elhadik/NIQ_DEMO/app.py)** | Flask REST API server that exposes the `/api/search` endpoint returning Custom Search JSON via cURL. |
+| **[requirements.txt](file:///usr/local/google/home/elhadik/NIQ_DEMO/requirements.txt)** | List of Python package dependencies (`google-genai`, `python-dotenv`). |
+| **[llm_client.py](file:///usr/local/google/home/elhadik/NIQ_DEMO/llm_client.py)** | Main Python script that queries Gemini LLM and formats the grounded output as Custom Search JSON. |
 | **`venv/`** | Virtual environment directory containing isolated Python libraries. |
 | **[README.md](file:///usr/local/google/home/elhadik/NIQ_DEMO/README.md)** | This setup guide. |
 
@@ -162,53 +161,119 @@ You can run the script directly with default or custom search prompts.
 
 ## 8. Testing via REST API & cURL
 
-The project includes a REST API server ([app.py](file:///usr/local/google/home/elhadik/NIQ_DEMO/app.py)) that exposes the `/api/search` endpoint. Calling this endpoint via `curl` returns **the exact same Google Custom Search API JSON response object** as the Python client!
+You can test Google Search Grounding using `curl` and pipe the response into `jq` to transform it directly on the command line into **the exact same Google Custom Search API JSON format** returned by the Python client.
 
-### Step 1: Start the REST API Server
-In your terminal, start the server:
-```bash
-./venv/bin/python app.py
-```
-*(The server will start listening on `http://localhost:5000/api/search`)*
+### Option A: Gemini API Key via cURL + jq
 
-### Option A: cURL POST Request (Custom Search JSON Output)
-
-Send a POST request with a JSON payload:
+Replace `YOUR_GEMINI_API_KEY` with your actual API key:
 
 ```bash
-curl -X POST "http://localhost:5000/api/search" \
-  -H "Content-Type: application/json" \
-  -d '{"prompt": "What are the latest developments in generative AI?"}'
-```
-
-### Option B: cURL GET Request (Custom Search JSON Output)
-
-Send a GET request with a query parameter:
-
-```bash
-curl "http://localhost:5000/api/search?q=What+is+quantum+computing%3F"
-```
-
-Both Option A and Option B return **the exact same Google Custom Search API JSON format** (`kind: "customsearch#search"`, `queries`, `searchInformation`, `items`, `citations`, `llmResponse`).
-
----
-
-### Option C: Direct Gemini API cURL (Raw API Output)
-
-If you wish to query Google AI Studio directly without the Custom Search JSON formatter, replace `YOUR_GEMINI_API_KEY` with your actual key:
-
-```bash
-curl -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=YOUR_GEMINI_API_KEY" \
+curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=YOUR_GEMINI_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "contents": [{
-      "parts": [{
-        "text": "What are the latest developments in generative AI?"
+    "contents": [{"parts": [{"text": "What are the latest developments in generative AI?"}]}],
+    "tools": [{"googleSearch": {}}]
+  }' | jq '{
+    kind: "customsearch#search",
+    url: {
+      type: "application/json",
+      template: "https://www.googleapis.com/customsearch/v1?q={searchTerms}"
+    },
+    queries: {
+      request: [.candidates[0].groundingMetadata.webSearchQueries[]? | {
+        title: ("Google Custom Search - " + .),
+        totalResults: ((.candidates[0].groundingMetadata.groundingChunks // []) | length | tostring),
+        searchTerms: .,
+        count: ((.candidates[0].groundingMetadata.groundingChunks // []) | length),
+        startIndex: 1
       }]
+    },
+    searchInformation: {
+      searchTime: 0.5,
+      formattedSearchTime: "0.50",
+      totalResults: ((.candidates[0].groundingMetadata.groundingChunks // []) | length | tostring),
+      formattedTotalResults: ((.candidates[0].groundingMetadata.groundingChunks // []) | length | tostring)
+    },
+    items: [.candidates[0].groundingMetadata.groundingChunks[]? | select(.web != null) | {
+      kind: "customsearch#result",
+      title: .web.title,
+      htmlTitle: ("<b>" + .web.title + "</b>"),
+      link: .web.uri,
+      displayLink: (.web.uri | split("/")[2] // .web.uri),
+      snippet: ("Web source cited for grounding: " + .web.title),
+      htmlSnippet: ("Web source cited for grounding: <b>" + .web.title + "</b>"),
+      formattedUrl: .web.uri
     }],
-    "tools": [{
-      "googleSearch": {}
-    }]
+    citations: [(range(0; (.candidates[0].groundingMetadata.groundingChunks // []) | length) as $i | {
+      sourceIndex: ($i + 1),
+      title: .candidates[0].groundingMetadata.groundingChunks[$i].web.title,
+      url: .candidates[0].groundingMetadata.groundingChunks[$i].web.uri
+    })],
+    llmResponse: {
+      text: .candidates[0].content.parts[0].text,
+      queries: .candidates[0].groundingMetadata.webSearchQueries
+    }
+  }'
+```
+
+### Option B: Google Cloud Vertex AI via cURL + jq
+
+If using Google Cloud Vertex AI with Application Default Credentials:
+
+```bash
+# 1. Fetch OAuth Access Token
+ACCESS_TOKEN=$(gcloud auth application-default print-access-token)
+PROJECT_ID="shade-sandbox"
+LOCATION="us-central1"
+MODEL_ID="gemini-2.5-flash"
+
+# 2. Execute cURL REST Request and transform with jq
+curl -s -X POST "https://${LOCATION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${LOCATION}/publishers/google/models/${MODEL_ID}:generateContent" \
+  -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "contents": [{"role": "user", "parts": [{"text": "What are the latest developments in generative AI?"}]}],
+    "tools": [{"googleSearch": {}}]
+  }' | jq '{
+    kind: "customsearch#search",
+    url: {
+      type: "application/json",
+      template: "https://www.googleapis.com/customsearch/v1?q={searchTerms}"
+    },
+    queries: {
+      request: [.candidates[0].groundingMetadata.webSearchQueries[]? | {
+        title: ("Google Custom Search - " + .),
+        totalResults: ((.candidates[0].groundingMetadata.groundingChunks // []) | length | tostring),
+        searchTerms: .,
+        count: ((.candidates[0].groundingMetadata.groundingChunks // []) | length),
+        startIndex: 1
+      }]
+    },
+    searchInformation: {
+      searchTime: 0.5,
+      formattedSearchTime: "0.50",
+      totalResults: ((.candidates[0].groundingMetadata.groundingChunks // []) | length | tostring),
+      formattedTotalResults: ((.candidates[0].groundingMetadata.groundingChunks // []) | length | tostring)
+    },
+    items: [.candidates[0].groundingMetadata.groundingChunks[]? | select(.web != null) | {
+      kind: "customsearch#result",
+      title: .web.title,
+      htmlTitle: ("<b>" + .web.title + "</b>"),
+      link: .web.uri,
+      displayLink: (.web.uri | split("/")[2] // .web.uri),
+      snippet: ("Web source cited for grounding: " + .web.title),
+      htmlSnippet: ("Web source cited for grounding: <b>" + .web.title + "</b>"),
+      formattedUrl: .web.uri
+    }],
+    citations: [(range(0; (.candidates[0].groundingMetadata.groundingChunks // []) | length) as $i | {
+      sourceIndex: ($i + 1),
+      title: .candidates[0].groundingMetadata.groundingChunks[$i].web.title,
+      url: .candidates[0].groundingMetadata.groundingChunks[$i].web.uri
+    })],
+    llmResponse: {
+      text: .candidates[0].content.parts[0].text,
+      queries: .candidates[0].groundingMetadata.webSearchQueries
+    }
   }'
 ```
 
@@ -216,7 +281,7 @@ curl -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5
 
 ## 9. Understanding the Response Output
 
-Whether calling via Python or cURL (`/api/search`), the response is structured after the **[Google Custom Search API Overview](https://developers.google.com/custom-search/v1/overview)**:
+Whether calling via Python or cURL + `jq`, the response is structured after the **[Google Custom Search API Overview](https://developers.google.com/custom-search/v1/overview)**:
 
 ```json
 {
@@ -228,17 +293,17 @@ Whether calling via Python or cURL (`/api/search`), the response is structured a
   "queries": {
     "request": [
       {
-        "title": "Google Custom Search - generative AI trends",
+        "title": "Google Custom Search - generative AI trends 2026",
         "totalResults": "3",
-        "searchTerms": "generative AI trends",
+        "searchTerms": "generative AI trends 2026",
         "count": 3,
         "startIndex": 1
       }
     ]
   },
   "searchInformation": {
-    "searchTime": 4.21,
-    "formattedSearchTime": "4.21",
+    "searchTime": 0.5,
+    "formattedSearchTime": "0.50",
     "totalResults": "3",
     "formattedTotalResults": "3"
   },
