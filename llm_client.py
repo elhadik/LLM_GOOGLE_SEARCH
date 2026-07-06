@@ -138,7 +138,7 @@ def generate_with_google_search(prompt: str, system_instruction: str = None) -> 
     return custom_search_payload
 
 if __name__ == "__main__":
-    prompt = "What are the latest news and updates about NIQ (NielsenIQ) in 2026?"
+    prompt = "What are the latest developments and trends in AI technology in 2026?"
     if len(sys.argv) > 1:
         prompt = " ".join(sys.argv[1:])
 

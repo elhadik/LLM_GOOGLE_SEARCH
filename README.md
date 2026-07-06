@@ -1,4 +1,4 @@
-# NIQ Demo: Google Gemini LLM API Client with Google Search Grounding
+# Google Gemini LLM API Client with Google Search Grounding
 
 Welcome! This beginner-friendly project demonstrates how to make LLM API calls using Google's `google-genai` SDK with **Google Search Grounding** always enabled.
 
@@ -47,7 +47,7 @@ Before starting, make sure you have:
 
 ## 2. Project Structure
 
-Inside `/usr/local/google/home/elhadik/NIQ_DEMO/`:
+Inside your working directory:
 
 | File / Folder | Purpose |
 | :--- | :--- |
@@ -137,7 +137,7 @@ You can run the script directly with default or custom search prompts.
 
 ### Run with a Custom Prompt:
 ```bash
-./venv/bin/python llm_client.py "What are the latest announcements from NielsenIQ in 2026?"
+./venv/bin/python llm_client.py "What are the latest developments in AI technology in 2026?"
 ```
 
 ---
@@ -156,7 +156,7 @@ curl -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5
   -d '{
     "contents": [{
       "parts": [{
-        "text": "What are the latest news about NIQ (NielsenIQ)?"
+        "text": "What are the latest developments in generative AI?"
       }]
     }],
     "tools": [{
@@ -184,7 +184,7 @@ curl -X POST "https://${LOCATION}-aiplatform.googleapis.com/v1/projects/${PROJEC
     "contents": [{
       "role": "user",
       "parts": [{
-        "text": "What are the latest news about NIQ (NielsenIQ)?"
+        "text": "What are the latest developments in generative AI?"
       }]
     }],
     "tools": [{
@@ -209,9 +209,9 @@ The script outputs a standard JSON object structured after the **[Google Custom 
   "queries": {
     "request": [
       {
-        "title": "Google Custom Search - what is NIQ",
+        "title": "Google Custom Search - generative AI trends",
         "totalResults": "5",
-        "searchTerms": "what is NIQ",
+        "searchTerms": "generative AI trends",
         "count": 5,
         "startIndex": 1
       }
@@ -226,26 +226,26 @@ The script outputs a standard JSON object structured after the **[Google Custom 
   "items": [
     {
       "kind": "customsearch#result",
-      "title": "NIQ Home - NIQ",
-      "htmlTitle": "<b>NIQ Home - NIQ</b>",
-      "link": "https://nielseniq.com/",
-      "displayLink": "nielseniq.com",
-      "snippet": "Web source cited for grounding: NIQ Home - NIQ",
-      "htmlSnippet": "Web source cited for grounding: <b>NIQ Home - NIQ</b>",
-      "formattedUrl": "https://nielseniq.com/"
+      "title": "Example Tech News",
+      "htmlTitle": "<b>Example Tech News</b>",
+      "link": "https://example.com/tech-news",
+      "displayLink": "example.com",
+      "snippet": "Web source cited for grounding: Example Tech News",
+      "htmlSnippet": "Web source cited for grounding: <b>Example Tech News</b>",
+      "formattedUrl": "https://example.com/tech-news"
     }
   ],
   "citations": [
     {
       "sourceIndex": 1,
-      "title": "NIQ Home - NIQ",
-      "url": "https://nielseniq.com/"
+      "title": "Example Tech News",
+      "url": "https://example.com/tech-news"
     }
   ],
   "llmResponse": {
-    "text": "NIQ (NielsenIQ) is a leading global consumer intelligence company...",
+    "text": "Generative AI continues to advance rapidly with multi-modal capabilities...",
     "queries": [
-      "what is NIQ"
+      "generative AI trends"
     ]
   }
 }
