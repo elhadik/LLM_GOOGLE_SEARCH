@@ -31,6 +31,9 @@ This project is built using official documentation and standards from Google Clo
    - [Mode B: Google Cloud Vertex AI (Enterprise Setup)](#mode-b-google-cloud-vertex-ai-enterprise-setup)
 7. [Running the Python Script](#7-running-the-python-script)
 8. [Testing via REST API & cURL](#8-testing-via-rest-api--curl)
+   - [Option A: cURL POST Request (Custom Search JSON Output)](#option-a-curl-post-request-custom-search-json-output)
+   - [Option B: cURL GET Request (Custom Search JSON Output)](#option-b-curl-get-request-custom-search-json-output)
+   - [Option C: Direct Gemini API cURL (Raw Output)](#option-c-direct-gemini-api-curl-raw-output)
 9. [Understanding the Response Output](#9-understanding-the-response-output)
 10. [Troubleshooting Common Issues](#10-troubleshooting-common-issues)
 11. [Citations](#-references--official-citations)
@@ -53,8 +56,9 @@ Inside your working directory:
 | File / Folder | Purpose |
 | :--- | :--- |
 | **[.env](file:///usr/local/google/home/elhadik/NIQ_DEMO/.env)** | Configuration file containing API keys, project ID, and model names. Never commit keys to Git! |
-| **[requirements.txt](file:///usr/local/google/home/elhadik/NIQ_DEMO/requirements.txt)** | List of Python package dependencies (`google-genai`, `python-dotenv`). |
-| **[llm_client.py](file:///usr/local/google/home/elhadik/NIQ_DEMO/llm_client.py)** | Main Python script that queries Gemini LLM and formats the grounded output as Custom Search JSON. |
+| **[requirements.txt](file:///usr/local/google/home/elhadik/NIQ_DEMO/requirements.txt)** | List of Python package dependencies (`google-genai`, `python-dotenv`, `flask`, `flask-cors`). |
+| **[llm_client.py](file:///usr/local/google/home/elhadik/NIQ_DEMO/llm_client.py)** | Main Python module that queries Gemini LLM and formats the grounded output as Custom Search JSON. |
+| **[app.py](file:///usr/local/google/home/elhadik/NIQ_DEMO/app.py)** | Flask REST API server that exposes the `/api/search` endpoint returning Custom Search JSON via cURL. |
 | **`venv/`** | Virtual environment directory containing isolated Python libraries. |
 | **[README.md](file:///usr/local/google/home/elhadik/NIQ_DEMO/README.md)** | This setup guide. |
 
@@ -158,11 +162,40 @@ You can run the script directly with default or custom search prompts.
 
 ## 8. Testing via REST API & cURL
 
-You can test Google Search Grounding directly using `curl` requests without using Python.
+The project includes a REST API server ([app.py](file:///usr/local/google/home/elhadik/NIQ_DEMO/app.py)) that exposes the `/api/search` endpoint. Calling this endpoint via `curl` returns **the exact same Google Custom Search API JSON response object** as the Python client!
 
-### Option A: Testing via Gemini API Key (Google AI Studio REST API)
+### Step 1: Start the REST API Server
+In your terminal, start the server:
+```bash
+./venv/bin/python app.py
+```
+*(The server will start listening on `http://localhost:5000/api/search`)*
 
-Replace `YOUR_GEMINI_API_KEY` with your actual API key:
+### Option A: cURL POST Request (Custom Search JSON Output)
+
+Send a POST request with a JSON payload:
+
+```bash
+curl -X POST "http://localhost:5000/api/search" \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "What are the latest developments in generative AI?"}'
+```
+
+### Option B: cURL GET Request (Custom Search JSON Output)
+
+Send a GET request with a query parameter:
+
+```bash
+curl "http://localhost:5000/api/search?q=What+is+quantum+computing%3F"
+```
+
+Both Option A and Option B return **the exact same Google Custom Search API JSON format** (`kind: "customsearch#search"`, `queries`, `searchInformation`, `items`, `citations`, `llmResponse`).
+
+---
+
+### Option C: Direct Gemini API cURL (Raw API Output)
+
+If you wish to query Google AI Studio directly without the Custom Search JSON formatter, replace `YOUR_GEMINI_API_KEY` with your actual key:
 
 ```bash
 curl -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=YOUR_GEMINI_API_KEY" \
@@ -179,39 +212,11 @@ curl -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5
   }'
 ```
 
-### Option B: Testing via Google Cloud Vertex AI REST API
-
-If you are using Google Cloud Vertex AI with Application Default Credentials:
-
-```bash
-# 1. Get OAuth Access Token
-ACCESS_TOKEN=$(gcloud auth application-default print-access-token)
-PROJECT_ID="shade-sandbox"
-LOCATION="us-central1"
-MODEL_ID="gemini-2.5-flash"
-
-# 2. Call Vertex AI Endpoint
-curl -X POST "https://${LOCATION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${LOCATION}/publishers/google/models/${MODEL_ID}:generateContent" \
-  -H "Authorization: Bearer ${ACCESS_TOKEN}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "contents": [{
-      "role": "user",
-      "parts": [{
-        "text": "What are the latest developments in generative AI?"
-      }]
-    }],
-    "tools": [{
-      "googleSearch": {}
-    }]
-  }'
-```
-
 ---
 
 ## 9. Understanding the Response Output
 
-The script outputs a standard JSON object structured after the **[Google Custom Search API Overview](https://developers.google.com/custom-search/v1/overview)**:
+Whether calling via Python or cURL (`/api/search`), the response is structured after the **[Google Custom Search API Overview](https://developers.google.com/custom-search/v1/overview)**:
 
 ```json
 {
@@ -224,42 +229,42 @@ The script outputs a standard JSON object structured after the **[Google Custom 
     "request": [
       {
         "title": "Google Custom Search - generative AI trends",
-        "totalResults": "5",
+        "totalResults": "3",
         "searchTerms": "generative AI trends",
-        "count": 5,
+        "count": 3,
         "startIndex": 1
       }
     ]
   },
   "searchInformation": {
-    "searchTime": 3.73,
-    "formattedSearchTime": "3.73",
-    "totalResults": "5",
-    "formattedTotalResults": "5"
+    "searchTime": 4.21,
+    "formattedSearchTime": "4.21",
+    "totalResults": "3",
+    "formattedTotalResults": "3"
   },
   "items": [
     {
       "kind": "customsearch#result",
-      "title": "Example Tech News",
-      "htmlTitle": "<b>Example Tech News</b>",
-      "link": "https://example.com/tech-news",
-      "displayLink": "example.com",
-      "snippet": "Web source cited for grounding: Example Tech News",
-      "htmlSnippet": "Web source cited for grounding: <b>Example Tech News</b>",
-      "formattedUrl": "https://example.com/tech-news"
+      "title": "Gartner Top Strategic Technology Trends for 2026",
+      "htmlTitle": "<b>Gartner Top Strategic Technology Trends for 2026</b>",
+      "link": "https://www.gartner.com/en/articles/top-technology-trends",
+      "displayLink": "www.gartner.com",
+      "snippet": "Web source cited for grounding: Gartner Top Strategic Technology Trends for 2026",
+      "htmlSnippet": "Web source cited for grounding: <b>Gartner Top Strategic Technology Trends for 2026</b>",
+      "formattedUrl": "https://www.gartner.com/en/articles/top-technology-trends"
     }
   ],
   "citations": [
     {
       "sourceIndex": 1,
-      "title": "Example Tech News",
-      "url": "https://example.com/tech-news"
+      "title": "Gartner Top Strategic Technology Trends for 2026",
+      "url": "https://www.gartner.com/en/articles/top-technology-trends"
     }
   ],
   "llmResponse": {
-    "text": "Generative AI continues to advance rapidly with multi-modal capabilities...",
+    "text": "Generative AI in 2026 is rapidly evolving into autonomous, enterprise-grade AI agents...",
     "queries": [
-      "generative AI trends"
+      "generative AI trends 2026"
     ]
   }
 }
