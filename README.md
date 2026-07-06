@@ -24,15 +24,16 @@ This project is built using official documentation and standards from Google Clo
 1. [Prerequisites](#1-prerequisites)
 2. [Project Structure](#2-project-structure)
 3. [Step-by-Step Installation Guide](#3-step-by-step-installation-guide)
-4. [Configuration (.env setup)](#4-configuration-env-setup)
-5. [Authentication Modes](#5-authentication-modes)
+4. [How to Get a Gemini API Key](#4-how-to-get-a-gemini-api-key)
+5. [Configuration (.env setup)](#5-configuration-env-setup)
+6. [Authentication Modes](#6-authentication-modes)
    - [Mode A: Gemini API Key (Recommended for Quick Setup)](#mode-a-gemini-api-key-recommended-for-quick-setup)
    - [Mode B: Google Cloud Vertex AI (Enterprise Setup)](#mode-b-google-cloud-vertex-ai-enterprise-setup)
-6. [Running the Python Script](#6-running-the-python-script)
-7. [Testing via REST API & cURL](#7-testing-via-rest-api--curl)
-8. [Understanding the Response Output](#8-understanding-the-response-output)
-9. [Troubleshooting Common Issues](#9-troubleshooting-common-issues)
-10. [Citations](#-references--official-citations)
+7. [Running the Python Script](#7-running-the-python-script)
+8. [Testing via REST API & cURL](#8-testing-via-rest-api--curl)
+9. [Understanding the Response Output](#9-understanding-the-response-output)
+10. [Troubleshooting Common Issues](#10-troubleshooting-common-issues)
+11. [Citations](#-references--official-citations)
 
 ---
 
@@ -86,7 +87,20 @@ pip install -r requirements.txt
 
 ---
 
-## 4. Configuration (.env setup)
+## 4. How to Get a Gemini API Key
+
+If you need a free Gemini API Key, follow these simple steps:
+
+1. **Go to Google AI Studio**: Open your browser and navigate to **[https://aistudio.google.com/](https://aistudio.google.com/)**.
+2. **Sign In**: Log in using your Google account.
+3. **Navigate to API Keys**: Click on **Get API key** in the left-hand sidebar menu.
+4. **Create Key**: Click the **Create API key** button. You can choose to create a key in a new project or select an existing Google Cloud project.
+5. **Copy Key**: Copy the generated API key (it will look like `AIzaSy...`).
+6. **Save to `.env`**: Paste the key into your `.env` file as shown in the section below.
+
+---
+
+## 5. Configuration (.env setup)
 
 The project reads settings from the `.env` file automatically using `python-dotenv`.
 
@@ -108,10 +122,10 @@ GOOGLE_API_USE_CLIENT_CERTIFICATE=false
 
 ---
 
-## 5. Authentication Modes
+## 6. Authentication Modes
 
 ### Mode A: Gemini API Key (Recommended for Quick Setup)
-1. Get an API key from [Google AI Studio](https://aistudio.google.com/).
+1. Follow [How to Get a Gemini API Key](#4-how-to-get-a-gemini-api-key) above to get your API key from [Google AI Studio](https://aistudio.google.com/).
 2. Set `GOOGLE_GENAI_USE_VERTEXAI=false` in `.env`.
 3. Set `GEMINI_API_KEY=AIzaSy...` in `.env`.
 
@@ -126,7 +140,7 @@ GOOGLE_API_USE_CLIENT_CERTIFICATE=false
 
 ---
 
-## 6. Running the Python Script
+## 7. Running the Python Script
 
 You can run the script directly with default or custom search prompts.
 
@@ -142,7 +156,7 @@ You can run the script directly with default or custom search prompts.
 
 ---
 
-## 7. Testing via REST API & cURL
+## 8. Testing via REST API & cURL
 
 You can test Google Search Grounding directly using `curl` requests without using Python.
 
@@ -195,7 +209,7 @@ curl -X POST "https://${LOCATION}-aiplatform.googleapis.com/v1/projects/${PROJEC
 
 ---
 
-## 8. Understanding the Response Output
+## 9. Understanding the Response Output
 
 The script outputs a standard JSON object structured after the **[Google Custom Search API Overview](https://developers.google.com/custom-search/v1/overview)**:
 
@@ -253,7 +267,7 @@ The script outputs a standard JSON object structured after the **[Google Custom 
 
 ---
 
-## 9. Troubleshooting Common Issues
+## 10. Troubleshooting Common Issues
 
 ### ❓ Issue 1: `Reauthentication is needed` or `Access Denied`
 * **Cause**: Your Google Cloud local credentials expired.
